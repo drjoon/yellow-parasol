@@ -1,0 +1,31 @@
+{
+  "Comment": "Add CNAME record to validate ACM certificate",
+  "Changes": [
+    {
+      "Action": "UPSERT",
+      "ResourceRecordSet": {
+        "Name": "_9c87bfc528ecc2daa1669f79c0920425.yellow-parasol.com.",
+        "Type": "CNAME",
+        "TTL": 300,
+        "ResourceRecords": [
+          {
+            "Value": "_70eb331a73bc19e6a319cf6a531db4f1.xlfgrmvvlj.acm-validations.aws."
+          }
+        ]
+      }
+    },
+    {
+      "Action": "UPSERT",
+      "ResourceRecordSet": {
+        "Name": "_8eaaa11ae9eb118b694a644de6ab872a.www.yellow-parasol.com.",
+        "Type": "CNAME",
+        "TTL": 300,
+        "ResourceRecords": [
+          {
+            "Value": "_546fa2313ebbf895c942ec81ae8febef.xlfgrmvvlj.acm-validations.aws."
+          }
+        ]
+      }
+    }
+  ]
+}
