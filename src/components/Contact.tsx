@@ -1,5 +1,4 @@
 import React, { useRef, useState } from "react";
-import emailjs from "@emailjs/browser";
 import { Send } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -11,39 +10,50 @@ const Contact = () => {
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const sendEmail = (e: React.FormEvent<HTMLFormElement>) => {
+  const sendContact = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsSubmitting(true);
 
-    if (form.current) {
-      // 아래 YOUR_SERVICE_ID, YOUR_TEMPLATE_ID, YOUR_PUBLIC_KEY를
-      // EmailJS에서 발급받은 값으로 교체해주세요.
-      emailjs
-        .sendForm(
-          import.meta.env.VITE_EMAILJS_SERVICE_ID,
-          import.meta.env.VITE_EMAILJS_TEMPLATE_ID,
-          form.current,
-          import.meta.env.VITE_EMAILJS_PUBLIC_KEY
-        )
-        .then(
-          () => {
-            toast({
-              title: "전송 완료",
-              description: "메시지 확인 후 연락드리겠습니다.",
-            });
-            form.current?.reset();
+    if (!form.current) return;
+
+    const formData = new FormData(form.current);
+    const data = {
+      name: formData.get("name"),
+      phone: formData.get("phone"),
+      message: formData.get("message"),
+    };
+
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_API_BASE_URL}/api/contact`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
           },
-          () => {
-            toast({
-              title: "전송 실패",
-              description: "오류가 발생했습니다. 다시 시도해주세요.",
-              variant: "destructive",
-            });
-          }
-        )
-        .finally(() => {
-          setIsSubmitting(false);
+          body: JSON.stringify(data),
+        }
+      );
+
+      const resData = await response.json();
+
+      if (response.ok && resData.success) {
+        toast({
+          title: "전송 완료",
+          description: "메시지 확인 후 연락드리겠습니다.",
         });
+        form.current?.reset();
+      } else {
+        throw new Error(resData.error || "서버 오류");
+      }
+    } catch (error) {
+      toast({
+        title: "전송 실패",
+        description: "오류가 발생했습니다. 다시 시도해주세요.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -54,11 +64,11 @@ const Contact = () => {
           문의하기
         </h2>
         <div className="max-w-2xl mx-auto bg-white p-8 rounded-lg shadow-md">
-          <form ref={form} onSubmit={sendEmail} className="space-y-6">
+          <form ref={form} onSubmit={sendContact} className="space-y-6">
             <div>
               <label
                 htmlFor="user_name"
-                className="block text-sm font-medium text-gray-700"
+                className="block text-sm font-medium text-gray-700 pb-2"
               >
                 성함
               </label>
@@ -67,16 +77,16 @@ const Contact = () => {
             <div>
               <label
                 htmlFor="user_phone"
-                className="block text-sm font-medium text-gray-700"
+                className="block text-sm font-medium text-gray-700 pb-2"
               >
                 전화번호
               </label>
-              <Input type="tel" name="phone" id="user_phone" required />
+              <Input type="tel" name="phone" id="user_phone" />
             </div>
             <div>
               <label
                 htmlFor="message"
-                className="block text-sm font-medium text-gray-700"
+                className="block text-sm font-medium text-gray-700 pb-2"
               >
                 내용
               </label>
