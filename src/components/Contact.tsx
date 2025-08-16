@@ -12,7 +12,7 @@ interface ContactFormData {
 }
 
 const Contact = () => {
-  const form = useRef(null);
+  const form = useRef<HTMLFormElement>(null);
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -23,6 +23,18 @@ const Contact = () => {
       errors.push("성함은 최소 2글자 이상 입력해주세요.");
     }
 
+    if (!data.phone || data.phone.trim().length < 8) {
+      errors.push("전화번호를 입력해주세요.");
+    }
+
+    // 전화번호 유효성 검사 (필수)
+    if (data.phone && data.phone.trim()) {
+      const phoneRegex = /^[0-9-+\s()]{8,20}$/;
+      if (!phoneRegex.test(data.phone.replace(/\s/g, ""))) {
+        errors.push("올바른 전화번호 형식을 입력해주세요.");
+      }
+    }
+
     if (!data.message || data.message.trim().length < 10) {
       errors.push("내용은 최소 10글자 이상 입력해주세요.");
     }
@@ -31,19 +43,13 @@ const Contact = () => {
       errors.push("내용은 1000글자 이내로 입력해주세요.");
     }
 
-    // 전화번호 유효성 검사 (선택사항이므로 입력했을 때만)
-    if (data.phone && data.phone.trim()) {
-      const phoneRegex = /^[0-9-+\s()]{8,20}$/;
-      if (!phoneRegex.test(data.phone.replace(/\s/g, ""))) {
-        errors.push("올바른 전화번호 형식을 입력해주세요.");
-      }
-    }
-
     return errors;
   };
 
   const sendContact = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+
+    if (isSubmitting) return;
 
     const formData = new FormData(e.currentTarget);
     const contactData: ContactFormData = {
@@ -52,43 +58,33 @@ const Contact = () => {
       message: formData.get("message") as string,
     };
 
-    const apiUrl =
-      "https://0mri4b4l4g.execute-api.ap-south-1.amazonaws.com/prod/api/contact";
+    // 폼 유효성 검사
+    const validationErrors = validateForm(contactData);
+    if (validationErrors.length > 0) {
+      toast({
+        variant: "destructive",
+        title: "입력 오류",
+        description: validationErrors.join(" "),
+      });
+      return;
+    }
 
-    console.log("전송 데이터:", contactData);
-    console.log("API URL:", apiUrl);
-    console.log("현재 Origin:", window.location.origin);
+    setIsSubmitting(true);
 
     try {
-      // OPTIONS preflight 요청 먼저 테스트
-      console.log("OPTIONS 요청 테스트 시작...");
-      const optionsResponse = await fetch(apiUrl, {
-        method: "OPTIONS",
-        headers: {
-          Origin: window.location.origin,
-          "Access-Control-Request-Method": "POST",
-          "Access-Control-Request-Headers": "Content-Type",
-        },
-      });
-
-      console.log("OPTIONS 응답:", {
-        status: optionsResponse.status,
-        statusText: optionsResponse.statusText,
-        headers: Object.fromEntries(optionsResponse.headers.entries()),
-      });
-
-      // 실제 POST 요청
-      console.log("POST 요청 시작...");
-      const response = await fetch(apiUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Origin: window.location.origin,
-        },
-        mode: "cors",
-        credentials: "omit", // credentials 제거해서 테스트
-        body: JSON.stringify(contactData),
-      });
+      const response = await fetch(
+        import.meta.env.VITE_API_BASE_URL + "/api/contact",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Origin: window.location.origin,
+          },
+          mode: "cors",
+          credentials: "omit",
+          body: JSON.stringify(contactData),
+        }
+      );
 
       console.log("POST 응답:", {
         status: response.status,
@@ -104,6 +100,19 @@ const Contact = () => {
 
       const result = await response.json();
       console.log("성공 응답:", result);
+
+      // 성공 토스트 표시
+      toast({
+        title: "문의 전송 완료",
+        description:
+          "문의사항이 성공적으로 전송되었습니다. 빠른 시일 내에 답변드리겠습니다.",
+      });
+
+      // 폼 초기화
+      if (form.current) {
+        form.current.reset();
+      }
+
       return result;
     } catch (error) {
       console.error("상세 에러 정보:");
@@ -118,9 +127,26 @@ const Contact = () => {
         console.error("2. 네트워크 연결 문제");
         console.error("3. 서버가 응답하지 않음");
         console.error("4. SSL/TLS 인증서 문제");
+
+        // 네트워크 에러 토스트
+        toast({
+          variant: "destructive",
+          title: "네트워크 연결 오류",
+          description: "인터넷 연결을 확인하고 다시 시도해주세요.",
+        });
+      } else {
+        // 일반적인 서버 에러 토스트
+        toast({
+          variant: "destructive",
+          title: "전송 실패",
+          description:
+            "문의사항 전송 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.",
+        });
       }
 
       throw error;
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -156,14 +182,16 @@ const Contact = () => {
                 htmlFor="user_phone"
                 className="block text-sm font-medium text-gray-700 pb-2"
               >
-                전화번호 <span className="text-gray-400">(선택사항)</span>
+                전화번호 <span className="text-red-500">*</span>
               </label>
               <Input
                 type="tel"
                 name="phone"
                 id="user_phone"
+                required
                 disabled={isSubmitting}
                 placeholder="010-1234-5678"
+                minLength={8}
                 maxLength={20}
               />
             </div>
